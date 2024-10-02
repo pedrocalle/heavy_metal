@@ -1,0 +1,93 @@
+#![no_std]
+#![no_main]
+
+use panic_halt as _; // use um tratador de panico
+use cortex_m_rt::entry;
+use stm32f1xx_hal::{
+    prelude::*,
+    pac,
+    gpio::{Output, PushPull},
+    serial::{Config, Serial},
+    timer::Timer,
+};
+
+use rtt_target::{rtt_init_print, rprintln};
+
+#[entry]
+fn main() -> ! {
+    // Inicialização do RTT
+    rtt_init_print!();
+
+    // Configurações do microcontrolador
+    let dp = pac::Peripherals::take().unwrap();
+    let mut flash = dp.FLASH.constrain();
+    let mut rcc = dp.RCC.constrain();
+    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+
+    // Configuração dos pinos
+    let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
+    let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
+
+    let mut relay1 = gpiob.pb0.into_push_pull_output(&mut gpiob.crl);
+    let mut relay2 = gpiob.pb1.into_push_pull_output(&mut gpiob.crl);
+    let mut relay3 = gpiob.pb5.into_push_pull_output(&mut gpiob.crl);
+    let mut relay4 = gpiob.pb6.into_push_pull_output(&mut gpiob.crl);
+
+    // Configuração do Bluetooth
+    let mut serial = Serial::usart1(
+        dp.USART1,
+        (gpioa.pa9, gpioa.pa10), // TX e RX
+        Config::default().baudrate(9600.bps()),
+        &mut rcc.apb2,
+        clocks,
+    )
+    .unwrap();
+
+    rprintln!("Sistema iniciado!");
+
+    // Loop principal
+    loop {
+        let mut buf = [0u8; 1];
+        
+        // Lê dados do Bluetooth
+        if let Ok(_) = serial.read(&mut buf) {
+            match buf[0] {
+                b'1' => {
+                    relay1.set_high().unwrap();
+                    rprintln!("Relay 1 ON");
+                }
+                b'2' => {
+                    relay1.set_low().unwrap();
+                    rprintln!("Relay 1 OFF");
+                }
+                b'3' => {
+                    relay2.set_high().unwrap();
+                    rprintln!("Relay 2 ON");
+                }
+                b'4' => {
+                    relay2.set_low().unwrap();
+                    rprintln!("Relay 2 OFF");
+                }
+                b'5' => {
+                    relay3.set_high().unwrap();
+                    rprintln!("Relay 3 ON");
+                }
+                b'6' => {
+                    relay3.set_low().unwrap();
+                    rprintln!("Relay 3 OFF");
+                }
+                b'7' => {
+                    relay4.set_high().unwrap();
+                    rprintln!("Relay 4 ON");
+                }
+                b'8' => {
+                    relay4.set_low().unwrap();
+                    rprintln!("Relay 4 OFF");
+                }
+                _ => {
+                    rprintln!("Comando inválido");
+                }
+            }
+        }
+    }
+}

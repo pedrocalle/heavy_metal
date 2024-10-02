@@ -1,0 +1,11 @@
+[default.general]
+chip = "STM32F103C8"
+
+[default.rtt]
+enabled = true
+
+[probe]
+protocol = "swd"
+
+[reset]
+halt_afterwards = true # Halta a CPU após o reset

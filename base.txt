@@ -1,0 +1,113 @@
+#![no_std]
+#![no_main]
+
+use cortex_m_rt::entry;
+use panic_halt as _;  // Para lidar com panics em sistemas embarcados
+use rtt_target::{rprintln, rtt_init_print};
+use stm32f1xx_hal::{
+    pac,
+    prelude::*,
+    gpio::{gpiob::PBx, Output, PushPull},
+    timer::Timer,
+};
+
+struct Robot {
+    relay1: PBx<Output<PushPull>>,
+    relay2: PBx<Output<PushPull>>,
+    relay3: PBx<Output<PushPull>>,
+    relay4: PBx<Output<PushPull>>,
+}
+
+impl Robot {
+    fn new(
+        relay1: PBx<Output<PushPull>>,
+        relay2: PBx<Output<PushPull>>,
+        relay3: PBx<Output<PushPull>>,
+        relay4: PBx<Output<PushPull>>,
+    ) -> Self {
+        Self {
+            relay1,
+            relay2,
+            relay3,
+            relay4,
+        }
+    }
+
+    fn move_forward(&mut self) {
+        rprintln!("Moving forward");
+        self.relay1.set_high();
+        self.relay2.set_low();
+        self.relay3.set_high();
+        self.relay4.set_low();
+    }
+
+    fn move_backward(&mut self) {
+        rprintln!("Moving backward");
+        self.relay1.set_low();
+        self.relay2.set_high();
+        self.relay3.set_low();
+        self.relay4.set_high();
+    }
+
+    fn turn_left(&mut self) {
+        rprintln!("Turning left");
+        self.relay1.set_low();
+        self.relay2.set_high();
+        self.relay3.set_high();
+        self.relay4.set_low();
+    }
+
+    fn turn_right(&mut self) {
+        rprintln!("Turning right");
+        self.relay1.set_high();
+        self.relay2.set_low();
+        self.relay3.set_low();
+        self.relay4.set_high();
+    }
+
+    fn stop(&mut self) {
+        rprintln!("Stopping");
+        self.relay1.set_low();
+        self.relay2.set_low();
+        self.relay3.set_low();
+        self.relay4.set_low();
+    }
+}
+
+#[entry]
+fn main() -> ! {
+    // Inicializa o sistema e os periféricos
+    let dp = pac::Peripherals::take().unwrap();
+    let mut flash = dp.FLASH.constrain();
+    let mut rcc = dp.RCC.constrain();
+
+    // Configura o clock do sistema
+    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+
+    // Inicializa RTT para captura de logs
+    rtt_init_print!();
+
+    // Inicializa GPIOs
+    let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
+
+    // Configura os pinos como saídas para controlar os relés
+    let relay1 = gpiob.pb0.into_push_pull_output(&mut gpiob.crl);
+    let relay2 = gpiob.pb1.into_push_pull_output(&mut gpiob.crl);
+    let relay3 = gpiob.pb2.into_push_pull_output(&mut gpiob.crl);
+    let relay4 = gpiob.pb3.into_push_pull_output(&mut gpiob.crl);
+
+    // Inicializa o robô
+    let mut robot = Robot::new(relay1, relay2, relay3, relay4);
+
+    // Configura um timer para controlar os intervalos de tempo
+    let mut timer = Timer::syst(dp.SYST, &clocks).start_count_down(1.hz());
+
+    // Loop principal
+    loop {
+        // Exemplo: move para frente por 3 segundos, depois para
+        robot.move_forward();
+        timer.wait().unwrap();
+        robot.stop();
+        timer.wait().unwrap();
+    }
+}
